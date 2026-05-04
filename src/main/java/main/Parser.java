@@ -2,11 +2,11 @@ package main;
 
 import java.util.List;
 
-import node.AcceptorNode;
-import node.DonorNode;
+import node.Acceptor;
+import node.Donor;
 import node.Node;
-import node.PrimitiveCallNode;
-import node.StringLiteralNode;
+import node.PrimitiveCall;
+import node.StringLiteral;
 
 import java.util.*;
 
@@ -163,7 +163,7 @@ class Parser {
                     argArray[j] = args.get(j);
                 }
                 
-                nodes.add(new PrimitiveCallNode(primitiveName, argArray));
+                nodes.add(new PrimitiveCall(primitiveName, argArray));
                 return i + 2; // Return index after the ')'
             } else {
                 // This should be a numeric relative reference
@@ -196,18 +196,18 @@ class Parser {
     private Node parseLiteral(String token) {
         // Remove the surrounding quotes
         String content = token.substring(1, token.length() - 1);
-        return new StringLiteralNode(content);
+        return new StringLiteral(content);
     }
 
     private Node parseDonor(String token) {
         // Format: <TYPE_ID>
         String typeId = extractTypeId(token, 1, 1);
-        return new DonorNode(typeId);
+        return new Donor(typeId);
     }
 
     private Node parseAcceptor(String token) {
         // Format: <<TYPE_ID>>
         String typeId = extractTypeId(token, 2, 2);
-        return new AcceptorNode(typeId);
+        return new Acceptor(typeId);
     }
 }

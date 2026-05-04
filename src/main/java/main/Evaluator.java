@@ -3,7 +3,7 @@ package main;
 import java.util.HashMap;
 import java.util.Map;
 
-import node.NodeOutput;
+import node.Output;
 import node.PrimitiveOperation;
 
 class Evaluator {
@@ -18,7 +18,7 @@ class Evaluator {
         // Logic to map "PLUS" -> new PlusOperation(), etc.
     }
 
-    public NodeOutput evaluate(DAGProgram program)  {
+    public Output evaluate(DAGProgram program)  {
         return null; // Implementation hidden
     }
 }
