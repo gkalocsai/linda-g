@@ -1,13 +1,9 @@
-package main;
+package node;
 
 import java.util.List;
 import java.util.Map;
 
-import node.Node;
-import node.NodeOutput;
-import node.PrimitiveOperation;
-
-class DonorNode extends Node {
+public class DonorNode extends Node {
     private final String typeId;
 
     public DonorNode(String typeId) {
