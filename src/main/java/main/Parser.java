@@ -139,30 +139,54 @@ class Parser {
 
     private int parsePrimitiveCall(List<String> tokens, int startIdx, List<Node> nodes) throws SyntaxException {
         List<Integer> args = new ArrayList<>();
-        int i = startIdx + 1;
+        int i = startIdx + 1; // Move past the '('
 
+        // 1. Consume tokens until we hit the closing ')'
         while (i < tokens.size() && !tokens.get(i).equals(")")) {
             String token = tokens.get(i);
-            try {
-                args.add(Integer.parseInt(token));
-            } catch (NumberFormatException e) {
-                // This might be the Primitive Name (the last token before ')')
-                if (i == tokens.size() - 1 || tokens.get(i + 1).equals(")")) {
-                    String primitiveName = token;
-                    
-                    // Convert List<Integer> to int[]
-                    int[] argArray = new int[args.size()];
-                    for (int j = 0; j < args.size(); j++) argArray[j] = args.get(j);
-                    
-                    nodes.add(new PrimitiveCallNode(primitiveName, argArray));
-                    return i + 2; // Skip name and closing parenthesis
-                } else {
-                    throw new SyntaxException("Expected integer argument, found: " + token);
+            
+            // We need to check if this token is an argument (number) 
+            // or the Primitive Name.
+            // Rule: The Primitive Name is always the LAST token before the ')'
+            if (i + 1 < tokens.size() && tokens.get(i + 1).equals(")")) {
+                // This is the Primitive Name
+                String primitiveName = token;
+                
+                // Validation: Primitive names should generally not be just numbers
+                if (isInteger(primitiveName)) {
+                    throw new SyntaxException("Primitive name cannot be a number: " + primitiveName);
+                }
+
+                // Convert argument list to array and create the node
+                int[] argArray = new int[args.size()];
+                for (int j = 0; j < args.size(); j++) {
+                    argArray[j] = args.get(j);
+                }
+                
+                nodes.add(new PrimitiveCallNode(primitiveName, argArray));
+                return i + 2; // Return index after the ')'
+            } else {
+                // This should be a numeric relative reference
+                try {
+                    args.add(Integer.parseInt(token));
+                } catch (NumberFormatException e) {
+                    throw new SyntaxException("Invalid argument at index " + i + ": " + token + 
+                                              ". Primitive arguments must be positive integers.");
                 }
             }
             i++;
         }
-        throw new SyntaxException("Unclosed parenthesis in primitive call");
+
+        throw new SyntaxException("Unclosed parenthesis in primitive call starting at index " + startIdx);
+    }
+    
+    private boolean isInteger(String s) {
+        try {
+            Integer.parseInt(s);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     private String extractTypeId(String token, int prefixLen, int suffixLen) {
