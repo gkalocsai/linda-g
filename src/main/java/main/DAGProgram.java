@@ -12,6 +12,6 @@ class DAGProgram {
     }
 
     public List<Node> getNodes() {
-        return null; // Implementation hidden
+        return nodes; // Implementation hidden
     }
 }
