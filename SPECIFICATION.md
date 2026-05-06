@@ -98,20 +98,48 @@ To ensure stability and predictability, the language employs a strict error prop
 - Node 4: `(3 1 !CONCAT)` $\rightarrow$ sees Node 3 is `null` $\rightarrow$ Short-circuits $\rightarrow$ `.str = null`
 
 ### 6) Donor and Acceptor (Merge Placeholders)
-- **Representation:**
-  - Acceptor: `<<TYPE_ID>>`
-  - Donor: `<TYPE_ID>`
-- **Semantics:** Placeholders intended for merging subgraphs. They are no-op nodes at runtime: they simply pass through the value of their the previous node. If the placeholder is the first node in the sequence, its output is empty string.
-- **TYPE_ID:** A string that must match between donor and acceptor for compatibility.
-- **Merge Algorithm:**
-  1. Identify donor node $D$ in donor graph $G_{don}$ and acceptor node $A$ in acceptor graph $G_{acc}$. Both must share `TYPE_ID`.
-  2. Define the donor prefix as all nodes in $G_{don}$ from the start up to and including $D$.
-  3. Insert the donor prefix nodes into $G_{acc}$ immediately before $A$.
-  4. Replace $A$ by the inserted donor-prefix's last node (the donor node instance).
-  5. Internal relative references in the inserted prefix remain valid. External references in $G_{acc}$ that previously pointed to $A$ now point to the inserted donor-last-node.
-- **Requirement:** `Donor.TYPE_ID` must equal `Acceptor.TYPE_ID`; otherwise, the merge is rejected.
-- **Index Adjustment:** During a merge, all numeric arguments in nodes following the insertion point must be incremented by the number of nodes inserted.
 
+**Representation:**
+- **Acceptor:** `<<TYPE_ID>>`
+- **Donor:** `<TYPE_ID>`
+
+**Semantics:**
+Placeholders intended for merging subgraphs. They act as no-op nodes at runtime: they pass through the `.str` value of the immediately preceding node. If a placeholder is the first node in a sequence, its output is an empty string.
+
+**Merge Algorithm:**
+A merge takes a **Donor Graph** ($G_{don}$) and an **Acceptor Graph** ($G_{acc}$) and produces a new **Result Graph** ($G_{res}$).
+
+1.  **Validation:**
+    - Locate the first `Donor` node ($D$) in $G_{don}$ and the first `Acceptor` node ($A$) in $G_{acc}$.
+    - If either is missing, the merge fails (`RuntimeException`).
+    - If `D.TYPE_ID` $\neq$ `A.TYPE_ID`, the merge fails (`RuntimeException`).
+
+2.  **Prefix Extraction:**
+    - Define the **Donor Prefix** as the ordered sequence of all nodes in $G_{don}$ from index $0$ up to and including $D$.
+
+3.  **Graph Assembly:**
+    - $G_{res}$ is constructed by concatenating nodes in the following order:
+        1. All nodes in $G_{acc}$ appearing **before** $A$.
+        2. All nodes in the **Donor Prefix**.
+        3. All nodes in $G_{acc}$ appearing **after** $A$.
+    - *Note: The Acceptor node $A$ is effectively replaced by the Donor node $D$.*
+
+4.  **Relative Reference Adjustment:**
+    Nodes within the Donor Prefix retain their original relative references. However, for every node $N$ in $G_{res}$ that originated from $G_{acc}$ and appears **after** the merge point, its relative arguments ($arg$) must be updated.
+    
+    Let $\text{offset} = \text{length}(\text{Donor Prefix}) - 1$.
+    For each argument $arg$ in node $N$ (where $N$ is at index $i$ in the original $G_{acc}$):
+    - Calculate the original target index: $\text{target} = i - arg$.
+    - **Case A: Target was before the Acceptor** ($\text{target} < \text{index}(A)$):
+        The distance to the target has increased. Update: $arg_{new} = arg + \text{offset}$.
+    - **Case B: Target was the Acceptor or after the Acceptor** ($\text{target} \geq \text{index}(A)$):
+        The distance remains the same because the target and the current node were both shifted forward by the same amount, or the target (the Acceptor) was replaced by the Donor at the same relative position. Update: $arg_{new} = arg$.
+
+**Example of Index Adjustment:**
+If the Donor Prefix has 3 nodes and we replace the Acceptor:
+- A reference to a node *before* the acceptor moves from distance 2 $\rightarrow$ 4 (offset of 2).
+- A reference to the acceptor itself stays distance 1 $\rightarrow$ 1 (now pointing to the Donor).
+- A reference to a node *after* the acceptor stays distance 1 $\rightarrow$ 1.
 ### 7) Evaluation Model
 - Single left-to-right pass (parse/resolve/evaluate).
 - When encountering a primitive, resolve each numeric arg to the corresponding previous node and use the required outputs (`.str`) per primitive semantics.
