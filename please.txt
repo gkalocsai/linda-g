@@ -1,0 +1,1 @@
+Please implement the specification in java. Use maven conventions and the following package names: main, node, node.primitive. Prefer using these classnames: DAG, Evaluator, GraphMerger, Parser, Acceptor, Concat, Donor, Node, PlaceHolder, Minus, PrimitiveCall, RndInt, Same, Plus. Avoid using compound words as classnames.

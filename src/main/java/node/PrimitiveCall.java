@@ -1,21 +1,20 @@
 package node;
 
+
 import java.util.List;
-import java.util.Map;
-
-
 
 public class PrimitiveCall extends Node {
-    private final String primitiveName;
-    private final int[] relativeArgs;
+    private final List<Integer> args;
+    private final String name;
+    private final char mode; // '!', '?', or ' '
 
-    public PrimitiveCall(String primitiveName, int[] relativeArgs) {
-        this.primitiveName = primitiveName;
-        this.relativeArgs = relativeArgs;
+    public PrimitiveCall(List<Integer> args, char mode, String name) {
+        this.args = args;
+        this.mode = mode;
+        this.name = name;
     }
 
-    @Override
-    public Output evaluate(List<Output> history, Map<String, PrimitiveOperation> primitives) {
-        return null; // Implementation hidden
-    }
+    public List<Integer> getArgs() { return args; }
+    public String getName() { return name; }
+    public char getMode() { return mode; }
 }

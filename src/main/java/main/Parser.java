@@ -1,213 +1,62 @@
 package main;
 
-import java.util.List;
-
-import node.Acceptor;
-import node.Donor;
-import node.Node;
-import node.PrimitiveCall;
-import node.StringLiteral;
-
+import node.*;
 import java.util.*;
+import java.util.regex.*;
 
-
-
-class Parser {
-
-    /**
-     * Main entry point: converts a textual description into a DAGProgram.
-     */
-    public DAGProgram parse(String input) throws SyntaxException {
-        if (input == null || input.trim().isEmpty()) {
-            return new DAGProgram(new ArrayList<>());
-        }
-
+public class Parser {
+    public static DAG parse(String input) {
+        DAG dag = new DAG();
+        // Basic tokenizer that respects quoted strings
         List<String> tokens = tokenize(input);
-        List<Node> nodes = new ArrayList<>();
         
-        int i = 0;
-        while (i < tokens.size()) {
+        for (int i = 0; i < tokens.size(); i++) {
             String token = tokens.get(i);
-
-            if (token.equals("(")) {
-                // Handle Primitive Call: ( arg1 arg2 ... NAME )
-                i = parsePrimitiveCall(tokens, i, nodes);
+            if (token.startsWith("\"")) {
+                Node lit = new Node() {}; // Generic node as Literal
+                lit.setStr(token.substring(1, token.length() - 1));
+                dag.addNode(lit);
             } else if (token.startsWith("<<")) {
-                // Handle Acceptor: <<TYPE_ID>>
-                nodes.add(parseAcceptor(token));
-                i++;
+                dag.addNode(new Acceptor(token.substring(2, token.length() - 2)));
             } else if (token.startsWith("<")) {
-                // Handle Donor: <TYPE_ID>
-                nodes.add(parseDonor(token));
-                i++;
-            } else if (token.startsWith("\"")) {
-                // Handle String Literal: "text"
-                nodes.add(parseLiteral(token));
-                i++;
-            } else {
-                throw new SyntaxException("Unexpected token at position " + i + ": " + token);
+                dag.addNode(new Donor(token.substring(1, token.length() - 1)));
+            } else if (token.startsWith("(")) {
+                // Handle primitive calls which may span multiple tokens
+                StringBuilder sb = new StringBuilder(token);
+                while (!sb.toString().endsWith(")")) {
+                    sb.append(" ").append(tokens.get(++i));
+                }
+                dag.addNode(parsePrimitive(sb.toString()));
             }
         }
-
-        return new DAGProgram(nodes);
+        return dag;
     }
 
-    /**
-     * Breaks the input string into tokens.
-     * Handles quoted strings as single tokens and separates parentheses.
-     */
-    private List<String> tokenize(String input) throws SyntaxException {
-        List<String> tokens = new ArrayList<>();
-        int n = input.length();
-        int i = 0;
-
-        while (i < n) {
-            char c = input.charAt(i);
-
-            if (Character.isWhitespace(c)) {
-                i++;
-                continue;
-            }
-
-            if (c == '"') {
-                // String Literal: read until closing quote
-                StringBuilder sb = new StringBuilder();
-                sb.append(c);
-                i++;
-                while (i < n && input.charAt(i) != '"') {
-                    sb.append(input.charAt(i));
-                    i++;
-                }
-                if (i >= n) throw new SyntaxException("Unclosed string literal");
-                sb.append('"');
-                tokens.add(sb.toString());
-                i++;
-            } else if (c == '(' || c == ')') {
-                // Parentheses are distinct tokens
-                tokens.add(String.valueOf(c));
-                i++;
-            } else if (c == '<') {
-                // --- DECISION POINT: DONOR OR ACCEPTOR? ---
-                
-                // 1. Look ahead to decide the type
-                boolean isAcceptor = (i + 1 < n && input.charAt(i + 1) == '<');
-                StringBuilder sb = new StringBuilder();
-
-                if (isAcceptor) {
-                    // MODE: ACCEPTOR (<<TYPE_ID>>)
-                    // Consume until we find the closing '>>'
-                    while (i < n) {
-                        sb.append(input.charAt(i));
-                        i++;
-                        if (sb.length() >= 2 && 
-                            sb.charAt(sb.length() - 1) == '>' && 
-                            sb.charAt(sb.length() - 2) == '>') {
-                            break;
-                        }
-                    }
-                    if (!sb.toString().endsWith(">>")) {
-                        throw new SyntaxException("Malformed Acceptor: missing closing '>>'");
-                    }
-                } else {
-                    // MODE: DONOR (<TYPE_ID>)
-                    // Consume until we find the closing '>'
-                    while (i < n) {
-                        sb.append(input.charAt(i));
-                        i++;
-                        if (sb.charAt(sb.length() - 1) == '>') {
-                            break;
-                        }
-                    }
-                    if (!sb.toString().endsWith(">")) {
-                        throw new SyntaxException("Malformed Donor: missing closing '>'");
-                    }
-                }
-                tokens.add(sb.toString());
-            }  else {
-                // Regular alphanumeric tokens (Primitive names, arguments)
-                StringBuilder sb = new StringBuilder();
-                while (i < n && !Character.isWhitespace(input.charAt(i)) 
-                       && input.charAt(i) != '(' && input.charAt(i) != ')' && input.charAt(i) != '"') {
-                    sb.append(input.charAt(i));
-                    i++;
-                }
-                tokens.add(sb.toString());
-            }
-        }
-        return tokens;
-    }
-
-    private int parsePrimitiveCall(List<String> tokens, int startIdx, List<Node> nodes) throws SyntaxException {
+    private static Node parsePrimitive(String content) {
+        String inner = content.substring(1, content.length() - 1).trim();
+        String[] parts = inner.split("\\s+");
+        
         List<Integer> args = new ArrayList<>();
-        int i = startIdx + 1; // Move past the '('
+        String name = "";
+        char mode = ' ';
 
-        // 1. Consume tokens until we hit the closing ')'
-        while (i < tokens.size() && !tokens.get(i).equals(")")) {
-            String token = tokens.get(i);
-            
-            // We need to check if this token is an argument (number) 
-            // or the Primitive Name.
-            // Rule: The Primitive Name is always the LAST token before the ')'
-            if (i + 1 < tokens.size() && tokens.get(i + 1).equals(")")) {
-                // This is the Primitive Name
-                String primitiveName = token;
-                
-                // Validation: Primitive names should generally not be just numbers
-                if (isInteger(primitiveName)) {
-                    throw new SyntaxException("Primitive name cannot be a number: " + primitiveName);
-                }
-
-                // Convert argument list to array and create the node
-                int[] argArray = new int[args.size()];
-                for (int j = 0; j < args.size(); j++) {
-                    argArray[j] = args.get(j);
-                }
-                
-                nodes.add(new PrimitiveCall(primitiveName, argArray));
-                return i + 2; // Return index after the ')'
+        for (int i = 0; i < parts.length; i++) {
+            String p = parts[i];
+            if (p.matches("\\d+")) {
+                args.add(Integer.parseInt(p));
             } else {
-                // This should be a numeric relative reference
-                try {
-                    args.add(Integer.parseInt(token));
-                } catch (NumberFormatException e) {
-                    throw new SyntaxException("Invalid argument at index " + i + ": " + token + 
-                                              ". Primitive arguments must be positive integers.");
-                }
+                if (p.startsWith("!")) { mode = '!'; name = p.substring(1); }
+                else if (p.startsWith("?")) { mode = '?'; name = p.substring(1); }
+                else { mode = ' '; name = p; }
             }
-            i++;
         }
-
-        throw new SyntaxException("Unclosed parenthesis in primitive call starting at index " + startIdx);
-    }
-    
-    private boolean isInteger(String s) {
-        try {
-            Integer.parseInt(s);
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
-        }
+        return new PrimitiveCall(args, mode, name);
     }
 
-    private String extractTypeId(String token, int prefixLen, int suffixLen) {
-        return token.substring(prefixLen, token.length() - suffixLen);
-    }
-
-    private Node parseLiteral(String token) {
-        // Remove the surrounding quotes
-        String content = token.substring(1, token.length() - 1);
-        return new StringLiteral(content);
-    }
-
-    private Node parseDonor(String token) {
-        // Format: <TYPE_ID>
-        String typeId = extractTypeId(token, 1, 1);
-        return new Donor(typeId);
-    }
-
-    private Node parseAcceptor(String token) {
-        // Format: <<TYPE_ID>>
-        String typeId = extractTypeId(token, 2, 2);
-        return new Acceptor(typeId);
+    private static List<String> tokenize(String input) {
+        List<String> tokens = new ArrayList<>();
+        Matcher m = Pattern.compile("\"[^\"]*\"|<<[^>>]*>>|<[^>]*>|\\([^)]*\\)|\\S+").matcher(input);
+        while (m.find()) tokens.add(m.group());
+        return tokens;
     }
 }

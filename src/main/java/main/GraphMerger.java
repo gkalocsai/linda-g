@@ -1,75 +1,77 @@
 package main;
 
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.IntStream;
-
-import node.Acceptor;
-import node.Donor;
-import node.Node;
+import node.*;
+import java.util.*;
 
 public class GraphMerger {
+    public static DAG merge(DAG donorGraph, DAG acceptorGraph) {
+        Node donorNode = findDonor(donorGraph);
+        Node acceptorNode = findAcceptor(acceptorGraph);
 
-    /**
-     * Merges the donor graph into the acceptor graph.
-     * Assumption: The donor node is the last element of the donorGraph.
-     * The donor and acceptor markers are both removed from the final result.
-     * 
-     * @param donorGraph    The graph providing the prefix.
-     * @param acceptorGraph The graph receiving the prefix.
-     * @return A new list of nodes with the donor body spliced into the acceptor graph.
-     * @throws MergeException if the donor graph is empty, doesn't end with a Donor, 
-     *                        or no matching Acceptor is found.
-     */
-    public static List<Node> merge(List<Node> donorGraph, List<Node> acceptorGraph) throws MergeException {
-        if (donorGraph == null || donorGraph.isEmpty()) {
-            throw new MergeException("Donor graph is empty.");
+        if (donorNode == null || acceptorNode == null) {
+            throw new RuntimeException("Merge markers missing");
+        }
+        if (!((Donor) donorNode).getTypeId().equals(((Acceptor) acceptorNode).getTypeId())) {
+            throw new RuntimeException("Type ID mismatch");
         }
 
-        // 1. Assume the donor is the last node of the graph
-        Node lastNode = donorGraph.get(donorGraph.size() - 1);
-        if (!(lastNode instanceof Donor)) {
-            throw new MergeException("The last node of the donor graph must be a Donor placeholder.");
+        int donorIdx = donorGraph.getNodes().indexOf(donorNode);
+        int acceptorIdx = acceptorGraph.getNodes().indexOf(acceptorNode);
+
+        // 1. Extract the donor prefix (from start up to and including the donor node)
+        List<Node> donorPrefix = new ArrayList<>(donorGraph.getNodes().subList(0, donorIdx + 1));
+        List<Node> accNodes = acceptorGraph.getNodes();
+        
+        List<Node> resultNodes = new ArrayList<>();
+
+        // 2. Add nodes from the acceptor graph that come BEFORE the acceptor
+        for (int i = 0; i < acceptorIdx; i++) {
+            resultNodes.add(accNodes.get(i));
         }
 
-        // Extract the typeId from the Donor node to find the matching Acceptor
-        String typeId = ((Donor) lastNode).getTypeId();
+        // 3. Insert the donor prefix nodes
+        resultNodes.addAll(donorPrefix);
 
-        // 2. Identify the acceptor node A in acceptor graph G_acc using the derived typeId
-        int acceptorIdx = findAcceptorIndex(acceptorGraph, typeId);
-        if (acceptorIdx == -1) {
-            throw new MergeException("No Acceptor node with TYPE_ID '" + typeId + "' found in acceptor graph.");
+        // 4. Add nodes from the acceptor graph that come AFTER the acceptor
+        // We calculate the offset: how many nodes were added minus the one we replaced
+        int offset = donorPrefix.size() - 1;
+
+        for (int i = acceptorIdx + 1; i < accNodes.size(); i++) {
+            Node n = accNodes.get(i);
+            if (n instanceof PrimitiveCall) {
+                PrimitiveCall pc = (PrimitiveCall) n;
+                List<Integer> newArgs = new ArrayList<>();
+                
+                for (int arg : pc.getArgs()) {
+                    // Calculate the absolute index this argument pointed to in the original acceptor graph
+                    int originalTargetIdx = i - arg;
+                    
+                    if (originalTargetIdx < acceptorIdx) {
+                        // If it pointed to something BEFORE the acceptor, the distance has increased
+                        newArgs.add(arg + offset);
+                    } else {
+                        // If it pointed to the acceptor itself, the distance is the same 
+                        // because the acceptor was replaced by the donor node at the same relative slot.
+                        newArgs.add(arg);
+                    }
+                }
+                // Create a new node instance to keep the original DAG immutable
+                resultNodes.add(new PrimitiveCall(newArgs, pc.getMode(), pc.getName()));
+            } else {
+                resultNodes.add(n);
+            }
         }
 
-        // 3. Prepare the Donor Body (the prefix excluding the donor node itself)
-        List<Node> donorBody = new ArrayList<>(donorGraph.subList(0, donorGraph.size() - 1));
-
-        // 4. Construct the final graph
-        List<Node> mergedGraph = new ArrayList<>();
-
-        // Part A: All nodes in acceptor graph before the acceptor node
-        mergedGraph.addAll(acceptorGraph.subList(0, acceptorIdx));
-
-        // Part B: The donor body (the content of the donor graph minus the Donor marker)
-        mergedGraph.addAll(donorBody);
-
-        // Part C: All nodes in acceptor graph after the acceptor node
-        mergedGraph.addAll(acceptorGraph.subList(acceptorIdx + 1, acceptorGraph.size()));
-
-        return mergedGraph;
+        DAG resultDag = new DAG();
+        resultNodes.forEach(resultDag::addNode);
+        return resultDag;
     }
 
-    private static int findAcceptorIndex(List<Node> graph, String typeId) {
-        return IntStream.range(0, graph.size())
-                .filter(i -> graph.get(i) instanceof Acceptor && ((Acceptor) graph.get(i)).getTypeId().equals(typeId))
-                .findFirst()
-                .orElse(-1);
+    private static Node findDonor(DAG dag) {
+        return dag.getNodes().stream().filter(n -> n instanceof Donor).findFirst().orElse(null);
     }
 
-    public static class MergeException extends Exception {
-        public MergeException(String message) {
-            super(message);
-        }
+    private static Node findAcceptor(DAG dag) {
+        return dag.getNodes().stream().filter(n -> n instanceof Acceptor).findFirst().orElse(null);
     }
 }

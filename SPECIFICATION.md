@@ -10,6 +10,13 @@
     - `"2" (1 1 SAME)`
     - `"Sarah" "John" (1 2 LOVES)` $\rightarrow$ John loves Sarah
 - If a relation is mutual, represent it with separate nodes (no cycles).
+- **The Global Connection Registry:** A persistent store of directed facts. Unlike Computational primitives which transform data, Connection and Query primitives interact with this registry using **Value-based Identity**.
+The registry persist across multiple different programs run in the same session.
+- **Value-based Identity:** A node's identity is its `.str` value. If two nodes have the same `.str` value, they are treated as the same entity in the Registry.
+- **Primitive Classification:**
+  - **Computation (`!NAME`):** Reads `.str` values $\rightarrow$ Produces a new `.str` value.
+  - **Connection (`NAME`):** Reads `.str` values $\rightarrow$ Records a directed fact `(Source, Target, Relation)` in the Registry $\rightarrow$ Produces `"T"`.
+  - **Query (`?NAME`):** Reads `.str` values $\rightarrow$ Checks Registry for the directed fact $\rightarrow$ Produces `"T"` or `"F"`.
 
 ### 2) Syntax (Informal / EBNF-like)
 - `program ::= node*`
@@ -17,7 +24,7 @@
 - `string_literal ::= '"' <characters> '"'`
 - `donor ::= '<' TYPE_ID '>'`
 - `acceptor ::= '<<' TYPE_ID '>>'`
-- `primitive_call ::= '(' arg* PRIMITIVE_NAME ')'`
+- `primitive_call ::= '(' arg* ( '!' | '?' | '' ) IDENTIFIER ')'`
 - `arg ::= INTEGER ; positive (1, 2, 3, ...)`
 - `PRIMITIVE_NAME ::= e.g. SAME, CONCAT, PLUS, MINUS, RNDINT, ...`
 - `TYPE_ID ::= non-empty string (implementation may allow quoted ids)`
@@ -44,31 +51,31 @@ Every node provides:
 ### 5) Base Primitives
 General rule: Primitives that transform data typically read their inputs from `argX.str`. Logical primitives usually set `.str` based on `.str` equality/tests. On parse/compute failures, `.str` is set to `null`.
 
-- **RNDINT**
+- **!RNDINT**
   - Syntax: `( RNDINT )`
   - Arity: 0
   - Behavior: Generates a random integer (implementation-specified range).
   - Output: `.str = decimal string of the integer`.
 
-- **CONCAT**
+- **!CONCAT**
   - Syntax: `( arg1 arg2 CONCAT )`
   - Arity: 2
   - Inputs: `arg1.str`, `arg2.str`
   - Output: `.str = arg1.str + arg2.str`.
 
-- **SAME**
+- **!SAME**
   - Syntax: `( arg1 arg2 SAME )`
   - Arity: 2
   - Inputs: `arg1.str`, `arg2.str`
   - Output: `"T"` if `(arg1.str == arg2.str)`; `"F"` if `(arg1.str != arg2.str)`.
 
-- **PLUS**
+- **!PLUS**
   - Syntax: `( arg1 arg2 PLUS )`
   - Arity: 2
   - Inputs: `argN.str` parsed as numbers (integer or floating; implementation choice).
   - Output: If parse succeeds, `.str = string(formal sum)`; if parse fails, `.str = null`.
 
-- **MINUS**
+- **!MINUS**
   - Syntax and behavior analogous to `PLUS`; result = `arg1 - arg2`.
 
 #### 5.1 Error Propagation (The "Null Cascade" Rule)
@@ -87,14 +94,14 @@ To ensure stability and predictability, the language employs a strict error prop
 **Example Trace:** ` "Apple" (RNDINT_FAIL) (1 2 PLUS) (3 1 CONCAT)`
 - Node 1: `"Apple"` $\rightarrow$ `.str = "Apple"`
 - Node 2: `(RNDINT_FAIL)` $\rightarrow$ `.str = null`
-- Node 3: `(1 2 PLUS)` $\rightarrow$ sees Node 2 is `null` $\rightarrow$ Short-circuits $\rightarrow$ `.str = null`
-- Node 4: `(3 1 CONCAT)` $\rightarrow$ sees Node 3 is `null` $\rightarrow$ Short-circuits $\rightarrow$ `.str = null`
+- Node 3: `(1 2 !PLUS)` $\rightarrow$ sees Node 2 is `null` $\rightarrow$ Short-circuits $\rightarrow$ `.str = null`
+- Node 4: `(3 1 !CONCAT)` $\rightarrow$ sees Node 3 is `null` $\rightarrow$ Short-circuits $\rightarrow$ `.str = null`
 
 ### 6) Donor and Acceptor (Merge Placeholders)
 - **Representation:**
   - Acceptor: `<<TYPE_ID>>`
   - Donor: `<TYPE_ID>`
-- **Semantics:** Placeholders intended for merging subgraphs. They are no-op nodes at runtime: if they have an input, they copy their input node's outputs; if not, they produce empty/false outputs per implementation convention.
+- **Semantics:** Placeholders intended for merging subgraphs. They are no-op nodes at runtime: they simply pass through the value of their the previous node. If the placeholder is the first node in the sequence, its output is empty string.
 - **TYPE_ID:** A string that must match between donor and acceptor for compatibility.
 - **Merge Algorithm:**
   1. Identify donor node $D$ in donor graph $G_{don}$ and acceptor node $A$ in acceptor graph $G_{acc}$. Both must share `TYPE_ID`.
@@ -128,12 +135,26 @@ To ensure stability and predictability, the language employs a strict error prop
   - `"Sarah" "John" (1 2 LOVES) (3 2 LOVES)`
     - Two separate LOVES nodes model mutual liking without graph cycles.
 - **Numeric/Random:**
-  - `(RNDINT) (RNDINT) (1 2 PLUS) (1 3 PLUS) (1 2 MINUS) (5 1 SAME)`
+  - `(!RNDINT) (!RNDINT) (1 2 !PLUS) (1 3 !PLUS) (1 2 !MINUS) (5 1 !SAME)`
     - Relative indices are resolved strictly at each primitive's position.
 - **String Building:**
-  - `"tehén" "fej" (2 1 CONCAT) "en" (2 1 CONCAT)`
+  - `"tehén" "fej" (2 1 !CONCAT) "en" (2 1 !CONCAT)`
     - Node 1: `"tehén"`
     - Node 2: `"fej"`
-    - Node 3: `(2 1 CONCAT)` $\rightarrow$ CONCAT(Node 1, Node 2) = `"tehénfej"`
+    - Node 3: `(2 1 !CONCAT)` $\rightarrow$ !CONCAT(Node 1, Node 2) = `"tehénfej"`
     - Node 4: `"en"`
-    - Node 5: `(2 1 CONCAT)` $\rightarrow$ CONCAT(Node 3, Node 4) = `"tehénfejen"`
+    - Node 5: `(2 1 !CONCAT)` $\rightarrow$ !CONCAT(Node 3, Node 4) = `"tehénfejen"`
+- **Value-Based Identity & Directedness:**
+  `"Sarah" "John" (1 2 LOVES) "Sarah" (1 2 ?LOVES)`
+- Node 1: `"Sarah"`
+- Node 2: `"John"`
+- Node 3: `(1 2 LOVES)` $\rightarrow$ Registry adds `("John", "Sarah", "LOVES")`. Output: `"T"`.
+- Node 4: `"Sarah"` (A new node, but has the same value as Node 1).
+- Node 5: `(1 2 ?LOVES)` $\rightarrow$ Relative to pos 5, this checks Node 4 (`"Sarah"`) and Node 3 (`"T"`).
+- *Correction for the Query:* To check if John loves Sarah using the new Sarah node:
+  `"Sarah" "John" (1 2 LOVES) "Sarah" (2 1 ?LOVES)`
+  - Node 5: `(2 1 ?LOVES)` $\rightarrow$ Checks Node 3 (`"T"`) and Node 4 (`"Sarah"`).
+- *To check the original entities via the new Sarah node:*
+  `"Sarah" "John" (1 2 LOVES) "Sarah" (3 1 ?LOVES)`
+  - Node 5: `(3 1 ?LOVES)` $\rightarrow$ Checks Node 2 (`"John"`) and Node 4 (`"Sarah"`). 
+  - Registry contains `("John", "Sarah", "LOVES")`. Result: `"T"`.
