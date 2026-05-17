@@ -24,11 +24,11 @@ public class Evaluator {
                 evaluatePrimitive((PrimitiveCall) node, i, nodes);
             } else if (node instanceof PlaceHolder) {
                 // Placeholders pass through the value of the previous node
-                if (i > 0) node.setStr(nodes.get(i - 1).getStr());
-                else node.setStr("");
+                if (i > 0) node.setResult(nodes.get(i - 1).getResult());
+                else node.setResult("");
             }
         }
-        return nodes.isEmpty() ? null : nodes.get(nodes.size() - 1).getStr();
+        return nodes.isEmpty() ? null : nodes.get(nodes.size() - 1).getResult();
     }
 
     private void evaluatePrimitive(PrimitiveCall call, int pos, List<Node> nodes) {
@@ -36,15 +36,15 @@ public class Evaluator {
         for (int rel : call.getArgs()) {
             int targetIdx = pos - rel;
             if (targetIdx < 0 || targetIdx >= nodes.size()) {
-                call.setStr(null); return;
+                call.setResult(null); return;
             }
             resolved.add(nodes.get(targetIdx));
         }
 
         // Null Cascade Rule
         for (Node n : resolved) {
-            if (n.getStr() == null) {
-                call.setStr(null); return;
+            if (n.getResult() == null) {
+                call.setResult(null); return;
             }
         }
 
@@ -53,29 +53,29 @@ public class Evaluator {
 
         if (mode == '!') {
             Primitive p = computations.get(name);
-            if (p == null || resolved.size() != p.getArity()) { call.setStr(null); return; }
-            call.setStr(p.execute(resolved));
+            if (p == null || resolved.size() != p.getArity()) { call.setResult(null); return; }
+            call.setResult(p.execute(resolved));
         } else if (mode == '?') {
-            if (resolved.size() != 2) { call.setStr(null); return; }
-            String key = resolved.get(0).getStr() + "|" + name + "|" + resolved.get(1).getStr();
-            call.setStr(registry.contains(key) ? "T" : "F");
+            if (resolved.size() != 2) { call.setResult(null); return; }
+            String key = resolved.get(0).getResult() + "|" + name + "|" + resolved.get(1).getResult();
+            call.setResult(registry.contains(key) ? "T" : "F");
         } else {
             // --- CONNECTION ---
             if (resolved.size() != 2) { 
-                call.setStr(null); 
+                call.setResult(null); 
                 return; 
             }
             
             // Reification: Create a wrapped S-Expression.
             // This allows facts to be treated as unique entities for Value-Based Identity.
-            String src = resolved.get(0).getStr();
-            String tgt = resolved.get(1).getStr();
+            String src = resolved.get(0).getResult();
+            String tgt = resolved.get(1).getResult();
             String factId = "(" + src + " " + name + " " + tgt + ")";
             
             registry.add(factId);
             
             // Return the factId so this node can be used as an argument for another primitive.
-            call.setStr(factId); 
+            call.setResult(factId); 
         }
     }
 }

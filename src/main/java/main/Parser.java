@@ -13,8 +13,7 @@ public class Parser {
         for (int i = 0; i < tokens.size(); i++) {
             String token = tokens.get(i);
             if (token.startsWith("\"")) {
-                Node lit = new Node() {}; // Generic node as Literal
-                lit.setStr(token.substring(1, token.length() - 1));
+                Literal lit = new Literal(token.substring(1, token.length() - 1)); // Generic node as Literal                
                 dag.addNode(lit);
             } else if (token.startsWith("<<")) {
                 dag.addNode(new Acceptor(token.substring(2, token.length() - 2)));

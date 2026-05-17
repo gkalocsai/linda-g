@@ -1,8 +1,10 @@
 package node;
 
-public abstract class Node {
-    protected String str = null;
+public interface Node {
 
-    public String getStr() { return str; }
-    public void setStr(String str) { this.str = str; }
+	int getArity();
+	String getResult();
+	void setResult(String str);
+   
+    
 }
