@@ -18,6 +18,7 @@ public class Main {
         // "tehén" "fej" (2 1 CONCAT) "en" (2 1 CONCAT)
         String input = "\"tehén\" \"fej\" (2 1 !CONCAT) \"en\" (2 1 !CONCAT)";
         DAG dag = Parser.parse(input);
+        System.out.println(dag);
         String result = new Evaluator().evaluate(dag);
         System.out.println("Input: " + input);
         System.out.println("Expected: tehénfejen | Actual: " + result);
