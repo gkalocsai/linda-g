@@ -31,4 +31,12 @@ public class PrimitiveCall implements Node {
     public String getResult() {
         return this.result;
     }
+    
+    public String toString() {
+    	if(mode ==' ') {
+    		   return "("+name+")";	
+    	}
+    	   return "("+mode+name+")";
+    }
+    
 }
