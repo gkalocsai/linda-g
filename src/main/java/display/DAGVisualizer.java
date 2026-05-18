@@ -13,7 +13,7 @@ public class DAGVisualizer {
     private static final int START_OFFSET = 2;
     private static final int NODE_GAP = 6;
 
-    public void visualize(DAG dag) {
+    public String visualize(DAG dag) {
         List<Node> nodes = dag.getNodes();
         Map<Node, String> nodeColorMap = new HashMap<>();
         Map<Node, Integer> xCoords = new HashMap<>();
@@ -28,13 +28,10 @@ public class DAGVisualizer {
         }
 
         List<Line> connections = calculateConnections(dag, xCoords, nodeColorMap);
-        for(Line c:connections) {
-        	System.out.println(c);
-        }
         
         ColoredChar[][] canvas = new ColoredChar[GRID_HEIGHT][currentX + 1];
 
-        // 2. Draw only the Node Labels (Everything else is delegated)
+        // 2. Draw Node Labels
         for (Node node : nodes) {
             int x = xCoords.get(node);
             String label = node.toString();
@@ -47,9 +44,38 @@ public class DAGVisualizer {
 
         // 3. Total Delegation to Renderer
         AStarRouter.routeLines(canvas, connections);
-        
-     
-        printCanvas(canvas);
+
+        // 4. Clip the canvas and return as String
+        return getClippedCanvasAsString(canvas);
+    }
+
+    private String getClippedCanvasAsString(ColoredChar[][] canvas) {
+        int minX = canvas[0].length, maxX = 0;
+        int minY = canvas.length, maxY = 0;
+        boolean hasContent = false;
+
+        for (int y = 0; y < canvas.length; y++) {
+            for (int x = 0; x < canvas[y].length; x++) {
+                if (canvas[y][x] != null) {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                    hasContent = true;
+                }
+            }
+        }
+
+        if (!hasContent) return "";
+
+        StringBuilder sb = new StringBuilder();
+        for (int y = minY; y <= maxY; y++) {
+            for (int x = minX; x <= maxX; x++) {
+                sb.append(canvas[y][x] == null ? " " : canvas[y][x].toString());
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
     }
 
     public List<Line> calculateConnections(DAG dag, Map<Node, Integer> xCoords, Map<Node, String> colors) {
@@ -105,15 +131,6 @@ public class DAGVisualizer {
         return sources;
     }
 
-    private void printCanvas(ColoredChar[][] canvas) {
-        for (int y = 0; y < GRID_HEIGHT; y++) {
-            StringBuilder sb = new StringBuilder();
-            for (int x = 0; x < canvas[y].length; x++) {
-                sb.append(canvas[y][x] == null ? " " : canvas[y][x].toString());
-            }
-            System.out.println(sb.toString());
-        }
-    }
     public static void main(String[] args) {
         DAG dag = new DAG();
 
@@ -136,6 +153,6 @@ public class DAGVisualizer {
 
         DAGVisualizer visualizer = new DAGVisualizer();
         System.out.println("DAG Visualization (Using explicit PlaceHolder inputs):\n");
-        visualizer.visualize(dag);
+        System.out.println(visualizer.visualize(dag));
     }
 }
