@@ -1,4 +1,5 @@
 package display;
+import java.awt.Color;
 import java.util.*;
 
 public class AStarRouter {
@@ -93,7 +94,7 @@ public class AStarRouter {
         return path;
     }
   
-    private static void drawPath(ColoredChar[][] canvas, List<Point> path, String color) {
+    private static void drawPath(ColoredChar[][] canvas, List<Point> path, Color color) {
         for (int i = 0; i < path.size(); i++) {
             Point curr = path.get(i);
             char symbol;

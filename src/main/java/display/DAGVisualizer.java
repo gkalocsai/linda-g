@@ -2,6 +2,7 @@ package display;
 
 import node.*;
 
+import java.awt.Color;
 import java.util.*;
 
 import main.DAG;
@@ -15,14 +16,23 @@ public class DAGVisualizer {
 
     public String visualize(DAG dag) {
         List<Node> nodes = dag.getNodes();
-        Map<Node, String> nodeColorMap = new HashMap<>();
+        Map<Node, Color> nodeColorMap = new HashMap<>();
         Map<Node, Integer> xCoords = new HashMap<>();
 
         // 1. Layout Calculation
         int currentX = START_OFFSET;
         for (int i = 0; i < nodes.size(); i++) {
             Node node = nodes.get(i);
-            nodeColorMap.put(node, COLOR_PALETTE[i % COLOR_PALETTE.length]);
+            Color color = null;
+            if(node instanceof PlaceHolder) {
+            	color = ColorTable.getOne(((PlaceHolder) node).getTypeId().hashCode());
+            }else if(node instanceof Literal) {
+            	color = ColorTable.getOne(((Literal) node).getResult().hashCode());
+            }
+            else {
+            	color = ColorTable.getOne(node.getClass().hashCode());
+            }
+            nodeColorMap.put(node, color);
             xCoords.put(node, currentX);
             currentX += node.toString().length() + NODE_GAP;
         }
@@ -35,7 +45,7 @@ public class DAGVisualizer {
         for (Node node : nodes) {
             int x = xCoords.get(node);
             String label = node.toString();
-            String color = nodeColorMap.get(node);
+            Color color = nodeColorMap.get(node);
 
             for (int j = 0; j < label.length(); j++) {
                 canvas[MIDLINE][x + j] = new ColoredChar(label.charAt(j), color);
@@ -78,7 +88,7 @@ public class DAGVisualizer {
         return sb.toString();
     }
 
-    public List<Line> calculateConnections(DAG dag, Map<Node, Integer> xCoords, Map<Node, String> colors) {
+    public List<Line> calculateConnections(DAG dag, Map<Node, Integer> xCoords, Map<Node, Color> nodeColorMap) {
         List<Line> connections = new ArrayList<>();
         List<Node> allNodes = dag.getNodes();
 
@@ -94,7 +104,7 @@ public class DAGVisualizer {
                 Point start = getOutputCoordinates(sourceX, sourceNode.toString().length());
 
                 if (j < inputPoints.size()) {
-                    connections.add(new Line(start, inputPoints.get(j), colors.get(sourceNode)));
+                    connections.add(new Line(start, inputPoints.get(j), nodeColorMap.get(sourceNode)));
                 }
             }
         }

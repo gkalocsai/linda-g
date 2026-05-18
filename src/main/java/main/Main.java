@@ -84,7 +84,7 @@ public class Main {
         // Acceptor Graph: <<T1>> "Part2" (1 1 CONCAT)
         
         String donorInput = "\"Part1\" <T1>";
-        String acceptorInput = "<<T1>> \"Part2\" (2 1 !CONCAT)";
+        String acceptorInput = "<<T1>> \"Part5\" (2 1 !CONCAT)";
         
         DAG donorDag = Parser.parse(donorInput);
         System.out.println(new DAGVisualizer().visualize(donorDag));
@@ -100,7 +100,7 @@ public class Main {
         String result = new Evaluator().evaluate(mergedDag);
         System.out.println("Donor: " + donorInput);
         System.out.println("Acceptor: " + acceptorInput);
-        System.out.println("Expected: Part1Part2 | Actual: " + result);
+        System.out.println("Expected: Part1Part5 | Actual: " + result);
         System.out.println();
     }
 }

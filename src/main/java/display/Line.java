@@ -1,12 +1,13 @@
 package display;
 
+import java.awt.Color;
 
 public class Line {
     public final Point start;
     public final Point end;
-    public final String color;
+    public final Color color;
 
-    public Line(Point start, Point end, String color) {
+    public Line(Point start, Point end, Color color) {
         this.start = start;
         this.end = end;
         this.color = color;
