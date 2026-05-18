@@ -17,28 +17,33 @@ public class Evaluator {
 
     public String evaluate(DAG dag) {
         List<Node> nodes = dag.getNodes();
-        for (int i = 0; i < nodes.size(); i++) {
-            Node node = nodes.get(i);
+        for (Node node : nodes) {
             if (node instanceof PrimitiveCall) {
                 evaluatePrimitive((PrimitiveCall) node);
             } else if (node instanceof PlaceHolder) {
-                if (i > 0) node.setResult(nodes.get(i - 1).getResult());
-                else node.setResult("");
+                evaluatePlaceHolder((PlaceHolder) node);
             }
         }
         return nodes.isEmpty() ? null : nodes.get(nodes.size() - 1).getResult();
     }
 
+    private void evaluatePlaceHolder(PlaceHolder ph) {
+        Node input = ph.getInput();
+        if (input == null) {
+            ph.setResult(""); 
+        } else {
+            String val = input.getResult();           
+            ph.setResult(val); 
+        }
+    }
+
     private void evaluatePrimitive(PrimitiveCall call) {
         List<Node> resolved = call.getArgs();
-
-        // Null Cascade Rule
         for (Node n : resolved) {
             if (n.getResult() == null) {
                 call.setResult(null); return;
             }
         }
-
         char mode = call.getMode();
         String name = call.getName();
         if (mode == '!') {

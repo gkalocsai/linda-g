@@ -14,9 +14,13 @@ public class Parser {
             if (token.startsWith("\"")) {
                 nodes.add(new Literal(token.substring(1, token.length() - 1)));
             } else if (token.startsWith("<<")) {
-                nodes.add(new Acceptor(token.substring(2, token.length() - 2)));
+                Acceptor acc = new Acceptor(token.substring(2, token.length() - 2));
+                linkPlaceHolder(acc, nodes);
+                nodes.add(acc);
             } else if (token.startsWith("<")) {
-                nodes.add(new Donor(token.substring(1, token.length() - 1)));
+                Donor don = new Donor(token.substring(1, token.length() - 1));
+                linkPlaceHolder(don, nodes);
+                nodes.add(don);
             } else if (token.startsWith("(")) {
                 StringBuilder sb = new StringBuilder(token);
                 while (!sb.toString().endsWith(")")) {
@@ -29,6 +33,12 @@ public class Parser {
         return dag;
     }
 
+    private static void linkPlaceHolder(PlaceHolder ph, List<Node> nodes) {
+        if (!nodes.isEmpty()) {
+            ph.setInput(nodes.get(nodes.size() - 1));
+        }
+    }
+    
     private static Node parsePrimitive(String content, List<Node> currentNodes) {
         String inner = content.substring(1, content.length() - 1).trim();
         String[] parts = inner.split("\\s+");

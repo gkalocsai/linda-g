@@ -4,6 +4,8 @@ import node.Node;
 import node.primitive.Primitive;
 import java.util.List;
 
+import display.DAGVisualizer;
+
 public class Main {
     public static void main(String[] args) {
         testStringBuilding();
@@ -85,9 +87,15 @@ public class Main {
         String acceptorInput = "<<T1>> \"Part2\" (2 1 !CONCAT)";
         
         DAG donorDag = Parser.parse(donorInput);
+        new DAGVisualizer().visualize(donorDag);
+        
+        
         DAG acceptorDag = Parser.parse(acceptorInput);
+        new DAGVisualizer().visualize(acceptorDag);
+        
         
         DAG mergedDag = GraphMerger.merge(donorDag, acceptorDag);
+        new DAGVisualizer().visualize(mergedDag);
         
         String result = new Evaluator().evaluate(mergedDag);
         System.out.println("Donor: " + donorInput);
