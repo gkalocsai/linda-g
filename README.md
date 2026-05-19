@@ -4,7 +4,7 @@ A Java implementation of a linear, position-based description language for Direc
 
 ## 📌 Overview
 
-In this language, a program is a sequence of nodes processed from left to right. Each node produces two outputs: a string (`.str`) and a boolean (`.bool`). 
+In this language, a program is a sequence of nodes processed from left to right. Each node produces a single string result. 
 
 The core strength of the language is its **Relative Reference System**: instead of using absolute IDs, primitive calls refer to previous nodes by their relative distance from the current position.
 - `1` refers to the immediately preceding node.
@@ -15,28 +15,47 @@ This backward-only referencing system mathematically guarantees that the resulti
 ## 🛠 Language Specification
 
 ### 1. Node Types
-| Node Type | Syntax | `.str` Output | `.bool` Output |
-| :--- | :--- | :--- | :--- |
-| **String Literal** | `"text"` | The literal text | Always `true` |
-| **Primitive** | `(arg1 arg2 NAME)` | Result of operation | Result of logic/success |
-| **Donor** | `<TYPE_ID>` | Passthrough/Empty | Passthrough/False |
-| **Acceptor** | `<<TYPE_ID>>` | Passthrough/Empty | Passthrough/False |
 
-### 2. Base Primitives
-The following primitives are supported:
-- `RNDINT`: Generates a random integer.
-- `CONCAT (arg1, arg2)`: Concatenates two strings.
-- `SAME (arg1, arg2)`: Returns `true` if strings are equal.
-- `PLUS (arg1, arg2)`: Sums two numeric strings.
-- `MINUS (arg1, arg2)`: Subtracts two numeric strings.
+| Node Type | Syntax | Description |
+| :--- | :--- | :--- |
+| **String Literal** | `"text"` | A constant string value. |
+| **Primitive Call** | `(rel1 rel2 MODE NAME)` | An operation that consumes previous nodes and produces a result. |
+| **Donor** | `<TYPE_ID>` | A marker used to export a subgraph for merging. |
+| **Acceptor** | `<<TYPE_ID>>` | A placeholder that can be replaced by a matching Donor subgraph. |
 
-### 3. Graph Merging (Donor & Acceptor)
-The language supports modularity by allowing one graph to be spliced into another:
-1. **The Donor Graph** must end with a `Donor` node (`<ID>`).
-2. **The Acceptor Graph** must contain an `Acceptor` node (`<<ID>>`) with a matching ID.
-3. **Merge Operation**: The body of the donor graph (all nodes preceding the Donor marker) is injected into the acceptor graph, replacing the Acceptor marker. Both markers are removed from the final resulting graph.
 
-## 💻 Java Implementation
+### 2. Primitive Execution Modes
+
+Unlike standard functions, primitives in this language operate in three distinct modes determined by a prefix character:
+
+*   **Fact Creation (Default/No Prefix):** `(1 2 NAME)`
+    *   Creates a "fact" in the global registry in the format: `(value1 NAME value2)`.
+    *   The result of the node is the fact string itself.
+*   **Query Mode (`?`):** `(1 2 ?NAME)`
+    *   Checks if the fact `(value1 NAME value2)` exists in the registry.
+    *   Returns `"T"` if it exists, `"F"` otherwise.
+*   **Execution Mode (`!`):** `(1 2 !NAME)`
+    *   Performs a functional computation using the logic defined in the `Primitive` class.
+    *   Example: `!PLUS` will return the numeric sum of the two inputs.
+
+### 3. Base Primitives
+
+The following computations are available in **Execution Mode (`!`)**:
+
+*   `RNDINT`: Generates a random integer.
+*   `CONCAT`: Concatenates two strings.
+*   `SAME`: Returns `"T"` if strings are equal, `"F"` otherwise.
+*   `PLUS`: Sums two numeric strings.
+*   `MINUS`: Subtracts two numeric strings.
+
+### 4. Graph Merging (Donor & Acceptor)
+
+The language allows one graph to be spliced into another based on matching `TYPE_ID`s:
+
+1.  **Identification**: The `GraphMerger` finds the first `Donor` in the donor graph and the first matching `Acceptor` in the acceptor graph.
+2.  **The Replacement**: The `Acceptor` node is removed. It is replaced by the **body of the donor graph** (all nodes appearing before the Donor marker).
+3.  **Reference Update**: Any node in the acceptor graph that previously referenced the `Acceptor` node is updated to reference the node that immediately preceded the `Donor` marker.
+4.  **Cleanup**: Both the `Donor` and `Acceptor` markers are removed from the final DAG.
 
 ### Class Structure
 - `Node`: The abstract base class for all graph elements.
