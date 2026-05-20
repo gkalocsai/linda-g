@@ -29,7 +29,7 @@ public class TestSuite {
         // "10" "20" (1 2 !PLUS) "5" (1 3 !MINUS) (1 2 !SAME)
         // 10, 20, 30, (30-5)=25, (25 == 30) = F
         String input = "\"10\" \"20\" (1 2 !PLUS) \"5\" (1 3 !MINUS) (1 2 !SAME)";
-        assertEquals("Math and Logic Chain", "F", eval.evaluate(Parser.parse(input)));
+        assertEquals("Math and Logic Chain", "@FALSE@", eval.evaluate(Parser.parse(input)));
 
         // Test: Concat
         // "Hello" "World" (2 1 !CONCAT)
@@ -69,7 +69,7 @@ public class TestSuite {
         // (4 5 ?KNOWS) -> Does Node 5 (John) know Node 4 (The fact)?
         String input3 = "\"John\" \"Sarah\" (1 2 LOVES) (2 1 KNOWS) \"John\" (2 1 ?KNOWS)";
         // Node 6: (John KNOWS (Sarah KNOWS (Sarah LOVES John))) ? -> F (because we never added this)
-        assertEquals("Query Non-existent Fact", "F", eval.evaluate(Parser.parse(input3)));
+        assertEquals("Query Non-existent Fact", "@FALSE@", eval.evaluate(Parser.parse(input3)));
     }
 
     private static void testValueBasedIdentity() {
@@ -82,7 +82,7 @@ public class TestSuite {
         // Node 6: (A LINK B)
         // Node 7: (SAME(Node 6, Node 3)) -> Should be T because the strings are identical.
         String input = "\"A\" \"B\" (1 2 LINK) \"A\" \"B\" (1 2 LINK) (1 4 !SAME)";
-        assertEquals("Identity Convergence", "T", eval.evaluate(Parser.parse(input)));
+        assertEquals("Identity Convergence", "@TRUE@", eval.evaluate(Parser.parse(input)));
     }
 
     private static void testComplexMerging() {

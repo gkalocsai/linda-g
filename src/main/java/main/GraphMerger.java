@@ -1,94 +1,94 @@
 package main;
+
 import node.*;
 import java.util.*;
 
 public class GraphMerger {
-	public static DAG merge(DAG donorGraph, DAG acceptorGraph) {
-		// 1. Find the donor node first
-		Node donorNode = findDonor(donorGraph);
-		if (donorNode == null) {
-			throw new RuntimeException("Donor marker missing");
-		}
+    public static DAG merge(DAG donorGraph, DAG acceptorGraph) {
+        // 1. Locate the Donor and the matching Acceptor
+        Node donorNode = findDonor(donorGraph);
+        if (donorNode == null) throw new RuntimeException("Donor marker missing");
 
-		// 2. Extract the typeId from the donor to use for the search
-		String donorTypeId = ((Donor) donorNode).getTypeId();
+        String donorTypeId = ((Donor) donorNode).getTypeId();
+        Node acceptorNode = findAcceptor(acceptorGraph, donorTypeId);
+        if (acceptorNode == null) return acceptorGraph;
 
-		// 3. Find the first acceptor node that MATCHES that specific typeId
-		Node acceptorNode = findAcceptor(acceptorGraph, donorTypeId);
+        // 2. Identify the actual value being donated (the node before the donor marker)
+        int donorIdx = donorGraph.getNodes().indexOf(donorNode);
+        Node replacementNode = (donorIdx > 0) ? donorGraph.getNodes().get(donorIdx - 1) : null;
 
-		//The merge did nothing as no acceptor accepts the donor
-		if(acceptorNode == null) return acceptorGraph;
+        // 3. Build the Replacement Map
+        // Maps OldNode -> NewNode to prevent ERROR_REF/Dangling Pointers
+        Map<Node, Node> replacementMap = new HashMap<>();
+        replacementMap.put(acceptorNode, replacementNode);
 
-		int donorIdx = donorGraph.getNodes().indexOf(donorNode);
-		int acceptorIdx = acceptorGraph.getNodes().indexOf(acceptorNode);
+        // 4. Process the Acceptor Graph to update references
+        List<Node> accNodes = acceptorGraph.getNodes();
+        // We'll store the "updated" version of the acceptor nodes here
+        List<Node> updatedAcceptorNodes = new ArrayList<>();
 
-		// 1. Identify the node that actually provides the value (the one before the Donor marker)
-		// If the donorNode is the first node, there is no predecessor.
-		Node replacementNode = (donorIdx > 0) ? donorGraph.getNodes().get(donorIdx - 1) : null;
+        for (Node n : accNodes) {
+            if (n instanceof PrimitiveCall) {
+                PrimitiveCall pc = (PrimitiveCall) n;
+                List<Node> oldArgs = pc.getArgs();
+                List<Node> newArgs = new ArrayList<>();
+                boolean changed = false;
 
-		// 2. Extract the donor prefix EXCLUDING the donor node itself
-		// subList(0, donorIdx) takes indices 0 to donorIdx-1
-		List<Node> donorPrefix = new ArrayList<>(donorGraph.getNodes().subList(0, donorIdx));
+                for (Node arg : oldArgs) {
+                    if (replacementMap.containsKey(arg)) {
+                        newArgs.add(replacementMap.get(arg));
+                        changed = true;
+                    } else {
+                        newArgs.add(arg);
+                    }
+                }
 
-		List<Node> accNodes = acceptorGraph.getNodes();
-		List<Node> resultNodes = new ArrayList<>();
+                if (changed) {
+                    Node newNode = new PrimitiveCall(newArgs, pc.getMode(), pc.getName());
+                    replacementMap.put(n, newNode);
+                    updatedAcceptorNodes.add(newNode);
+                } else {
+                    updatedAcceptorNodes.add(n);
+                }
+            } else {
+                updatedAcceptorNodes.add(n);
+            }
+        }
 
-		// 3. Add nodes from the acceptor graph that come BEFORE the acceptor
-		for (int i = 0; i < acceptorIdx; i++) {
-			resultNodes.add(processNode(accNodes.get(i), acceptorNode, replacementNode));
-		}
+        // 5. SLOT INJECTION: Assemble the final node list
+        // We iterate through the original acceptor structure.
+        // When we hit the Acceptor slot, we drop in the Donor's logic.
+        List<Node> finalNodes = new ArrayList<>();
+        List<Node> donorPrefix = new ArrayList<>(donorGraph.getNodes().subList(0, donorIdx));
+        
+        for (int i = 0; i < accNodes.size(); i++) {
+            Node originalNode = accNodes.get(i);
+            
+            if (originalNode == acceptorNode) {
+                // INJECT: Replace the acceptor node with the entire donor logic prefix
+                finalNodes.addAll(donorPrefix);
+            } else {
+                // ADD: Add the updated version of the node (from our map/updated list)
+                // We find the replacement in the map; if not there, use the updated list
+                Node updatedNode = replacementMap.getOrDefault(originalNode, updatedAcceptorNodes.get(i));
+                finalNodes.add(updatedNode);
+            }
+        }
 
-		// 4. Insert the donor prefix nodes (the donorNode is now omitted)
-		resultNodes.addAll(donorPrefix);
+        DAG resultDag = new DAG();
+        finalNodes.forEach(resultDag::addNode);
+        return resultDag;
+    }
 
-		// 5. Add nodes from the acceptor graph that come AFTER the acceptor
-		for (int i = acceptorIdx + 1; i < accNodes.size(); i++) {
-			resultNodes.add(processNode(accNodes.get(i), acceptorNode, replacementNode));
-		}
+    private static Node findDonor(DAG dag) {
+        return dag.getNodes().stream().filter(n -> n instanceof Donor).findFirst().orElse(null);
+    }
 
-		DAG resultDag = new DAG();
-		resultNodes.forEach(resultDag::addNode);
-		return resultDag;
-	}
-
-	/**
-	 * Ensures that if a node is a PrimitiveCall, any reference to the
-	 * old Acceptor node is replaced by the replacementNode (predecessor of Donor).
-	 */
-	private static Node processNode(Node n, Node acceptorNode, Node replacementNode) {
-		if (n instanceof PrimitiveCall) {
-			PrimitiveCall pc = (PrimitiveCall) n;
-			List<Node> oldArgs = pc.getArgs();
-			List<Node> newArgs = new ArrayList<>();
-
-			boolean needsReplacement = false;
-			for (Node arg : oldArgs) {
-				if (arg == acceptorNode) {
-					newArgs.add(replacementNode);
-					needsReplacement = true;
-				} else {
-					newArgs.add(arg);
-				}
-			}
-
-			return needsReplacement ? new PrimitiveCall(newArgs, pc.getMode(), pc.getName()) : n;
-		}
-		return n;
-	}
-
-	private static Node findDonor(DAG dag) {
-		return dag.getNodes().stream()
-				.filter(n -> n instanceof Donor)
-				.findFirst()
-				.orElse(null);
-	}
-
-	private static Node findAcceptor(DAG dag, String targetTypeId) {
-		return dag.getNodes().stream()
-				.filter(n -> n instanceof Acceptor)
-				.map(n -> (Acceptor) n)
-				.filter(a -> a.getTypeId().equals(targetTypeId))
-				.findFirst()
-				.orElse(null);
-	}
+    private static Node findAcceptor(DAG dag, String targetTypeId) {
+        return dag.getNodes().stream()
+                .filter(n -> n instanceof Acceptor)
+                .map(n -> (Acceptor) n)
+                .filter(a -> a.getTypeId().equals(targetTypeId))
+                .findFirst().orElse(null);
+    }
 }

@@ -13,6 +13,8 @@ public class Parser {
             String token = tokens.get(i);
             if (token.startsWith("\"")) {
                 nodes.add(new Literal(token.substring(1, token.length() - 1)));
+            } else if (token.startsWith("@")) {
+                nodes.add(new Thing(token.substring(1, token.length() - 1)));
             } else if (token.startsWith("<<")) {
                 Acceptor acc = new Acceptor(token.substring(2, token.length() - 2));
                 linkPlaceHolder(acc, nodes);
@@ -65,7 +67,7 @@ public class Parser {
 
     private static List<String> tokenize(String input) {
         List<String> tokens = new ArrayList<>();
-        Matcher m = Pattern.compile("\"[^\"]*\"|<<[^>>]*>>|<[^>]*>|\\([^)]*\\)|\\S+").matcher(input);
+        Matcher m = Pattern.compile("\"[^\"]*\"|<<[^>>]*>>|<[^>]*>|\\([^)]*\\)|@[^@]*@|\\S+").matcher(input);
         while (m.find()) tokens.add(m.group());
         return tokens;
     }

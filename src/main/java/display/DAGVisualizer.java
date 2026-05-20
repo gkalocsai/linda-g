@@ -14,7 +14,7 @@ public class DAGVisualizer {
     private static final int START_OFFSET = 2;
     private static final int NODE_GAP = 6;
 
-    public String visualize(DAG dag) {
+    public static String visualize(DAG dag) {
         List<Node> nodes = dag.getNodes();
         Map<Node, Color> nodeColorMap = new HashMap<>();
         Map<Node, Integer> xCoords = new HashMap<>();
@@ -59,7 +59,7 @@ public class DAGVisualizer {
         return getClippedCanvasAsString(canvas);
     }
 
-    private String getClippedCanvasAsString(ColoredChar[][] canvas) {
+    private static String getClippedCanvasAsString(ColoredChar[][] canvas) {
         int minX = canvas[0].length, maxX = 0;
         int minY = canvas.length, maxY = 0;
         boolean hasContent = false;
@@ -88,7 +88,7 @@ public class DAGVisualizer {
         return sb.toString();
     }
 
-    public List<Line> calculateConnections(DAG dag, Map<Node, Integer> xCoords, Map<Node, Color> nodeColorMap) {
+    public static List<Line> calculateConnections(DAG dag, Map<Node, Integer> xCoords, Map<Node, Color> nodeColorMap) {
         List<Line> connections = new ArrayList<>();
         List<Node> allNodes = dag.getNodes();
 
@@ -111,11 +111,11 @@ public class DAGVisualizer {
         return connections;
     }
 
-    public Point getOutputCoordinates(int nodeX, int width) {
+    public static Point getOutputCoordinates(int nodeX, int width) {
         return new Point(nodeX + width, MIDLINE);
     }
 
-    public List<Point> getInputCoordinates(Node node, int nodeX) {
+    public static List<Point> getInputCoordinates(Node node, int nodeX) {
         List<Point> coords = new ArrayList<>();
         int arity = node.getArity();
         int x = nodeX - 1;
@@ -131,7 +131,7 @@ public class DAGVisualizer {
         return coords;
     }
 
-    private List<Node> resolveInputSources(Node node, int index, List<Node> allNodes) {
+    private static List<Node> resolveInputSources(Node node, int index, List<Node> allNodes) {
         List<Node> sources = new ArrayList<>();
         if (node instanceof PrimitiveCall) sources.addAll(((PrimitiveCall) node).getArgs());
         else if (node instanceof PlaceHolder) {

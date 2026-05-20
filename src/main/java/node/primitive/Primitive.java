@@ -3,9 +3,10 @@ package node.primitive;
 import node.Node;
 import java.util.List;
 
+import main.KnowledgeBase;
+
 public abstract class  Primitive implements Node {
     private String result;
-
 
 	public abstract String execute(List<Node> inputs);
     public abstract int getArity();
@@ -14,8 +15,7 @@ public abstract class  Primitive implements Node {
   	public void setResult(String str) {
   	  this.result =str;		
   	}
-      
-
+          
     @Override
   	public String getResult() {
   	  return this.result;		
@@ -24,5 +24,5 @@ public abstract class  Primitive implements Node {
     public String toString() {
     	return this.getClass().getName();
     }
-    
+	
 }
